@@ -1,0 +1,25 @@
+apiVersion: guard.example.com/v1
+kind: RolloutGuard
+metadata:
+  labels:
+    app.kubernetes.io/name: deployguard
+    app.kubernetes.io/managed-by: kustomize
+  name: rolloutguard-sample
+spec:
+  targetRef: sample-deployment
+  metrics:
+    latencyQuery: 'histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket{job="kubernetes-service-endpoints"}[1m])) by (le))'
+    errorRateQuery: 'sum(rate(http_requests_total{job="kubernetes-service-endpoints", status=~"5.."}[1m])) / sum(rate(http_requests_total{job="kubernetes-service-endpoints"}[1m])) * 100'
+  thresholds:
+    maxLatency: 500
+    maxErrorRate: "1%"
+    # Grace period: wait 60s after rollout starts before checking metrics (pods warming up)
+    gracePeriodSeconds: 20
+    # Evaluation window: metrics must violate for 30s before pausing
+    evaluationWindowSeconds: 20
+    # Consecutive failures: require 3 failing checks in a row
+    consecutiveFailures: 3
+  # Violation strategy: what to do when SLO violations are detected
+  # - "Pause": pause the deployment (default)
+  # - "Rollback": rollback to last known healthy revision
+  violationStrategy: "Rollback"

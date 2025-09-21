@@ -1,0 +1,262 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.19.0
+  name: rolloutguards.guard.example.com
+spec:
+  group: guard.example.com
+  names:
+    kind: RolloutGuard
+    listKind: RolloutGuardList
+    plural: rolloutguards
+    singular: rolloutguard
+  scope: Namespaced
+  versions:
+  - name: v1
+    schema:
+      openAPIV3Schema:
+        description: RolloutGuard is the Schema for the rolloutguards API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: spec defines the desired state of RolloutGuard
+            properties:
+              alertConfig:
+                description: AlertConfig defines notification settings
+                properties:
+                  slackWebhook:
+                    description: SlackWebhook is the URL for Slack notifications
+                    type: string
+                type: object
+              metrics:
+                description: Metrics defines the Prometheus queries to monitor
+                properties:
+                  errorRateQuery:
+                    description: ErrorRateQuery is the PromQL query for error rate
+                    type: string
+                  latencyQuery:
+                    description: LatencyQuery is the PromQL query for latency
+                    type: string
+                required:
+                - errorRateQuery
+                - latencyQuery
+                type: object
+              targetRef:
+                description: TargetRef references the Deployment to monitor
+                type: string
+              thresholds:
+                description: Thresholds defines the limits for the metrics
+                properties:
+                  consecutiveFailures:
+                    default: 3
+                    description: |-
+                      ConsecutiveFailures is the number of consecutive checks that must fail
+                      before pausing the deployment
+                    format: int32
+                    minimum: 1
+                    type: integer
+                  evaluationWindowSeconds:
+                    default: 30
+                    description: |-
+                      EvaluationWindowSeconds is how long to observe violations before taking action
+                      Metrics must exceed thresholds for this duration to trigger pause
+                    format: int32
+                    minimum: 10
+                    type: integer
+                  gracePeriodSeconds:
+                    default: 60
+                    description: |-
+                      GracePeriodSeconds is the time to wait after rollout starts before checking metrics
+                      This allows pods to warm up and start receiving traffic
+                    format: int32
+                    minimum: 0
+                    type: integer
+                  maxErrorRate:
+                    description: MaxErrorRate is the maximum allowed error rate percentage
+                      (e.g., "1%")
+                    pattern: ^\d+(?:\.\d+)?%$
+                    type: string
+                  maxLatency:
+                    description: MaxLatency is the maximum allowed latency in milliseconds
+                    minimum: 0
+                    type: integer
+                  monitoringWindowSeconds:
+                    default: 300
+                    description: |-
+                      MonitoringWindowSeconds is how long to continue monitoring after a rollout is detected
+                      Even if the rollout completes, monitoring continues until this window expires
+                      This catches issues in newly deployed versions
+                    format: int32
+                    minimum: 60
+                    type: integer
+                required:
+                - maxErrorRate
+                - maxLatency
+                type: object
+              violationStrategy:
+                default: Pause
+                description: |-
+                  ViolationStrategy defines what action to take when SLO violations are detected
+                  Valid values: "Pause" (default), "Rollback"
+                  - Pause: Stops the rollout but keeps current version
+                  - Rollback: Reverts to the previous successful version
+                enum:
+                - Pause
+                - Rollback
+                type: string
+            required:
+            - metrics
+            - targetRef
+            - thresholds
+            type: object
+          status:
+            description: status defines the observed state of RolloutGuard
+            properties:
+              conditions:
+                description: |-
+                  conditions represent the current state of the RolloutGuard resource.
+                  Each condition has a unique type and reflects the status of a specific aspect of the resource.
+
+                  Standard condition types include:
+                  - "Available": the resource is fully functional
+                  - "Progressing": the resource is being created or updated
+                  - "Degraded": the resource failed to reach or maintain its desired state
+
+                  The status of each condition is one of True, False, or Unknown.
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              consecutiveViolations:
+                description: ConsecutiveViolations tracks how many checks in a row
+                  have failed
+                format: int32
+                type: integer
+              firstViolationTime:
+                description: FirstViolationTime is when the first violation was detected
+                format: date-time
+                type: string
+              lastCheckTime:
+                description: LastCheckTime is the timestamp of the last Prometheus
+                  query
+                format: date-time
+                type: string
+              lastHealthyRevision:
+                description: |-
+                  LastHealthyRevision is the deployment revision number of the last known healthy state
+                  Used for rollback when ViolationStrategy is "Rollback"
+                format: int64
+                type: integer
+              message:
+                description: Message provides additional context about the current
+                  state
+                type: string
+              monitoringEndTime:
+                description: |-
+                  MonitoringEndTime is when monitoring should stop (RolloutStartTime + MonitoringWindow)
+                  Monitoring continues even after rollout completes until this time
+                format: date-time
+                type: string
+              observedErrorRate:
+                description: ObservedErrorRate is the last observed error rate as
+                  a percentage
+                type: number
+              observedLatency:
+                description: ObservedLatency is the last observed latency value in
+                  milliseconds
+                type: number
+              phase:
+                description: |-
+                  Phase represents the current state of the RolloutGuard
+                  Possible values: Monitoring, Paused, Healthy, Error
+                type: string
+              rolloutStartTime:
+                description: RolloutStartTime is when the current rollout was detected
+                format: date-time
+                type: string
+              trackedGeneration:
+                description: |-
+                  TrackedGeneration is the deployment generation we're currently monitoring
+                  Used to detect when a new rollout starts
+                format: int64
+                type: integer
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
